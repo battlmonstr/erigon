@@ -1,6 +1,6 @@
 GO = go
 GOBIN = $(CURDIR)/build/bin
-GOTEST = GODEBUG=cgocheck=0 $(GO) test -tags nosqlite -trimpath ./... -p 2
+GOTEST = GODEBUG=cgocheck=0 $(GO) test -tags nosqlite
 
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
@@ -86,7 +86,7 @@ db-tools:
 	@echo "Run \"$(GOBIN)/mdbx_stat -h\" to get info about mdbx db file."
 
 test:
-	$(GOTEST) --timeout 30m
+	$(GOTEST) -count 1 ./p2p/discover
 
 lint:
 	@./build/bin/golangci-lint run --config ./.golangci.yml
