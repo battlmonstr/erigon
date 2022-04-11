@@ -5,8 +5,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ledgerwatch/erigon/common"
+	"github.com/ledgerwatch/erigon/crypto"
+	"github.com/ledgerwatch/erigon/eth/protocols/eth"
 	"github.com/ledgerwatch/erigon/p2p"
 	"github.com/ledgerwatch/erigon/p2p/rlpx"
+	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rlp"
 	"net"
 	"time"
@@ -42,7 +46,9 @@ const (
 	HandshakeErrorIDUnexpectedMessage HandshakeErrorID = "unexpected-message"
 	HandshakeErrorIDDisconnectDecode  HandshakeErrorID = "disconnect-decode"
 	HandshakeErrorIDDisconnect        HandshakeErrorID = "disconnect"
+	HandshakeErrorIDHelloEncode       HandshakeErrorID = "hello-encode"
 	HandshakeErrorIDHelloDecode       HandshakeErrorID = "hello-decode"
+	HandshakeErrorIDStatusDecode      HandshakeErrorID = "status-decode"
 )
 
 type HandshakeError struct {
@@ -80,8 +86,12 @@ func (e *HandshakeError) Error() string {
 		return fmt.Sprintf("handshake failed to parse disconnect reason: %v", e.wrappedErr)
 	case HandshakeErrorIDDisconnect:
 		return fmt.Sprintf("handshake got disconnected: %v", e.wrappedErr)
+	case HandshakeErrorIDHelloEncode:
+		return fmt.Sprintf("handshake failed to encode outgoing Hello message: %v", e.wrappedErr)
 	case HandshakeErrorIDHelloDecode:
 		return fmt.Sprintf("handshake failed to parse Hello message: %v", e.wrappedErr)
+	case HandshakeErrorIDStatusDecode:
+		return fmt.Sprintf("handshake failed to parse Status message: %v", e.wrappedErr)
 	default:
 		return "<unhandled HandshakeErrorID>"
 	}
@@ -98,7 +108,13 @@ func (e *HandshakeError) StringCode() string {
 	}
 }
 
-func Handshake(ctx context.Context, ip net.IP, rlpxPort int, pubkey *ecdsa.PublicKey, myPrivateKey *ecdsa.PrivateKey) (*HelloMessage, *HandshakeError) {
+func Handshake(
+	ctx context.Context,
+	ip net.IP,
+	rlpxPort int,
+	pubkey *ecdsa.PublicKey,
+	myPrivateKey *ecdsa.PrivateKey,
+) (*HelloMessage, *eth.StatusPacket, *HandshakeError) {
 	connectTimeout := 10 * time.Second
 	dialer := net.Dialer{
 		Timeout: connectTimeout,
@@ -107,44 +123,92 @@ func Handshake(ctx context.Context, ip net.IP, rlpxPort int, pubkey *ecdsa.Publi
 
 	tcpConn, err := dialer.DialContext(ctx, "tcp", addr.String())
 	if err != nil {
-		return nil, NewHandshakeError(HandshakeErrorIDConnect, err, 0)
+		return nil, nil, NewHandshakeError(HandshakeErrorIDConnect, err, 0)
 	}
 
 	conn := rlpx.NewConn(tcpConn, pubkey)
 	defer func() { _ = conn.Close() }()
 
 	handshakeTimeout := 5 * time.Second
-	err = conn.SetDeadline(time.Now().Add(handshakeTimeout))
+	handshakeDeadline := time.Now().Add(handshakeTimeout)
+	err = conn.SetDeadline(handshakeDeadline)
 	if err != nil {
-		return nil, NewHandshakeError(HandshakeErrorIDSetTimeout, err, 0)
+		return nil, nil, NewHandshakeError(HandshakeErrorIDSetTimeout, err, 0)
+	}
+	err = conn.SetWriteDeadline(handshakeDeadline)
+	if err != nil {
+		return nil, nil, NewHandshakeError(HandshakeErrorIDSetTimeout, err, 0)
 	}
 
 	_, err = conn.Handshake(myPrivateKey)
 	if err != nil {
-		return nil, NewHandshakeError(HandshakeErrorIDAuth, err, 0)
+		return nil, nil, NewHandshakeError(HandshakeErrorIDAuth, err, 0)
 	}
 
+	ourHelloMessage := makeOurHelloMessage(myPrivateKey)
+	ourHelloData, err := rlp.EncodeToBytes(&ourHelloMessage)
+	if err != nil {
+		return nil, nil, NewHandshakeError(HandshakeErrorIDHelloEncode, err, 0)
+	}
+	go func() { _, _ = conn.Write(RLPxMessageIDHello, ourHelloData) }()
+
+	var helloMessage HelloMessage
+	if err := readMessage(conn, RLPxMessageIDHello, HandshakeErrorIDHelloDecode, &helloMessage); err != nil {
+		return nil, nil, err
+	}
+
+	// All messages following Hello are compressed using the Snappy algorithm.
+	if helloMessage.Version >= 5 {
+		conn.SetSnappy(true)
+	}
+
+	var statusMessage eth.StatusPacket
+	if err := readMessage(conn, 16+eth.StatusMsg, HandshakeErrorIDStatusDecode, &statusMessage); err != nil {
+		return &helloMessage, nil, err
+	}
+
+	return &helloMessage, &statusMessage, nil
+}
+
+func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError HandshakeErrorID, message interface{}) *HandshakeError {
 	messageID, data, dataSize, err := conn.Read()
 	if err != nil {
-		return nil, NewHandshakeError(HandshakeErrorIDRead, err, 0)
+		return NewHandshakeError(HandshakeErrorIDRead, err, 0)
 	}
-	reader := bytes.NewReader(data)
 
 	if messageID == RLPxMessageIDDisconnect {
 		var reason [1]p2p.DiscReason
-		if err = rlp.Decode(reader, &reason); err != nil {
-			return nil, NewHandshakeError(HandshakeErrorIDDisconnectDecode, err, 0)
+		if err = rlp.DecodeBytes(data, &reason); err != nil {
+			return NewHandshakeError(HandshakeErrorIDDisconnectDecode, err, 0)
 		}
-		return nil, NewHandshakeError(HandshakeErrorIDDisconnect, reason[0], uint64(reason[0]))
+		return NewHandshakeError(HandshakeErrorIDDisconnect, reason[0], uint64(reason[0]))
 	}
-	if messageID != RLPxMessageIDHello {
-		return nil, NewHandshakeError(HandshakeErrorIDUnexpectedMessage, nil, messageID)
-	}
-
-	var message HelloMessage
-	if err = rlp.NewStream(reader, uint64(dataSize)).Decode(&message); err != nil {
-		return nil, NewHandshakeError(HandshakeErrorIDHelloDecode, err, 0)
+	if messageID != expectedMessageID {
+		return NewHandshakeError(HandshakeErrorIDUnexpectedMessage, nil, messageID)
 	}
 
-	return &message, nil
+	if err = rlp.NewStream(bytes.NewReader(data), uint64(dataSize)).Decode(message); err != nil {
+		return NewHandshakeError(decodeError, err, 0)
+	}
+	return nil
+}
+
+func makeOurHelloMessage(myPrivateKey *ecdsa.PrivateKey) HelloMessage {
+	version := params.VersionWithCommit(params.GitCommit, "")
+	clientID := common.MakeName("observer", version)
+
+	caps := []p2p.Cap{
+		{Name: eth.ProtocolName, Version: 63},
+		{Name: eth.ProtocolName, Version: 64},
+		{Name: eth.ProtocolName, Version: 65},
+		{Name: eth.ProtocolName, Version: eth.ETH66},
+	}
+
+	return HelloMessage{
+		Version:    5,
+		ClientID:   clientID,
+		Caps:       caps,
+		ListenPort: 0, // not listening
+		Pubkey:     crypto.MarshalPubkey(&myPrivateKey.PublicKey),
+	}
 }

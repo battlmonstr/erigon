@@ -305,8 +305,8 @@ func (crawler *Crawler) Run(ctx context.Context) error {
 
 			var clientID *string
 			var handshakeRetryTime *time.Time
-			if result != nil {
-				clientID = result.ClientID
+			if (result != nil) && (result.HandshakeResult != nil) {
+				clientID = result.HandshakeResult.ClientID
 				handshakeRetryTime = result.HandshakeRetryTime
 			} else if (err != nil) && (err.id == InterrogationErrorBlacklistedClientID) {
 				clientID = new(string)
@@ -391,13 +391,6 @@ func (crawler *Crawler) saveInterrogationResult(
 		}
 	}
 
-	if (result != nil) && (result.HandshakeErr != nil) {
-		dbErr := crawler.db.InsertHandshakeError(ctx, id, result.HandshakeErr.StringCode())
-		if dbErr != nil {
-			return dbErr
-		}
-	}
-
 	if isPingError {
 		dbErr := crawler.db.UpdatePingError(ctx, id)
 		if dbErr != nil {
@@ -424,6 +417,20 @@ func (crawler *Crawler) saveInterrogationResult(
 		}
 
 		dbErr = crawler.db.DeleteHandshakeErrors(ctx, id)
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
+	if (result != nil) && (result.HandshakeResult != nil) && (result.HandshakeResult.NetworkID != nil) {
+		dbErr := crawler.db.UpdateNetworkID(ctx, id, uint(*result.HandshakeResult.NetworkID))
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
+	if (result != nil) && (result.HandshakeResult != nil) && (result.HandshakeResult.HandshakeErr != nil) {
+		dbErr := crawler.db.InsertHandshakeError(ctx, id, result.HandshakeResult.HandshakeErr.StringCode())
 		if dbErr != nil {
 			return dbErr
 		}

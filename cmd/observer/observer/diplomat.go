@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"github.com/ledgerwatch/erigon/cmd/observer/database"
+	"github.com/ledgerwatch/erigon/eth/protocols/eth"
 	"github.com/ledgerwatch/erigon/p2p"
 	"github.com/ledgerwatch/erigon/p2p/enode"
 	"github.com/ledgerwatch/log/v3"
@@ -21,6 +22,12 @@ type Diplomat struct {
 	handshakeMaxTries       uint
 
 	log log.Logger
+}
+
+type DiplomatResult struct {
+	ClientID     *string
+	NetworkID    *uint64
+	HandshakeErr *HandshakeError
 }
 
 func NewDiplomat(
@@ -44,27 +51,30 @@ func NewDiplomat(
 	return &instance
 }
 
-func (diplomat *Diplomat) Run(ctx context.Context) (*string, *HandshakeError) {
-	return diplomat.tryRequestClientID(ctx)
-}
-
-func (diplomat *Diplomat) handshake(ctx context.Context) (*HelloMessage, *HandshakeError) {
+func (diplomat *Diplomat) handshake(ctx context.Context) (*HelloMessage, *eth.StatusPacket, *HandshakeError) {
 	node := diplomat.node
 	return Handshake(ctx, node.IP(), node.TCP(), node.Pubkey(), diplomat.privateKey)
 }
 
-func (diplomat *Diplomat) tryRequestClientID(ctx context.Context) (*string, *HandshakeError) {
+func (diplomat *Diplomat) Run(ctx context.Context) DiplomatResult {
 	diplomat.log.Debug("Handshaking with a node")
-	hello, handshakeErr := diplomat.handshake(ctx)
+	hello, status, handshakeErr := diplomat.handshake(ctx)
 
+	var result DiplomatResult
 	if (handshakeErr != nil) && !errors.Is(handshakeErr, context.Canceled) {
+		result.HandshakeErr = handshakeErr
 		diplomat.log.Debug("Failed to handshake", "err", handshakeErr)
-		return nil, handshakeErr
+	}
+	if hello != nil {
+		result.ClientID = &hello.ClientID
+		diplomat.log.Debug("Got client ID", "clientID", result.ClientID)
+	}
+	if status != nil {
+		result.NetworkID = &status.NetworkID
+		diplomat.log.Debug("Got network ID", "networkID", result.NetworkID)
 	}
 
-	clientID := &hello.ClientID
-	diplomat.log.Debug("Got client ID", "clientID", *clientID)
-	return clientID, nil
+	return result
 }
 
 func (diplomat *Diplomat) NextRetryTime(handshakeErr *HandshakeError) time.Time {

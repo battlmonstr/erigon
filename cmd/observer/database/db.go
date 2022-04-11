@@ -33,6 +33,7 @@ type DB interface {
 	CountPingErrors(ctx context.Context, id NodeID) (*uint, error)
 
 	UpdateClientID(ctx context.Context, id NodeID, clientID string) error
+	UpdateNetworkID(ctx context.Context, id NodeID, networkID uint) error
 	InsertHandshakeError(ctx context.Context, id NodeID, handshakeErr string) error
 	DeleteHandshakeErrors(ctx context.Context, id NodeID) error
 	FindHandshakeLastErrors(ctx context.Context, id NodeID, limit uint) ([]HandshakeError, error)

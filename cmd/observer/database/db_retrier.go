@@ -88,6 +88,13 @@ func (db DBRetrier) UpdateClientID(ctx context.Context, id NodeID, clientID stri
 	return err
 }
 
+func (db DBRetrier) UpdateNetworkID(ctx context.Context, id NodeID, networkID uint) error {
+	_, err := db.retry(ctx, "UpdateNetworkID", func(ctx context.Context) (interface{}, error) {
+		return nil, db.db.UpdateNetworkID(ctx, id, networkID)
+	})
+	return err
+}
+
 func (db DBRetrier) InsertHandshakeError(ctx context.Context, id NodeID, handshakeErr string) error {
 	_, err := db.retry(ctx, "InsertHandshakeError", func(ctx context.Context) (interface{}, error) {
 		return nil, db.db.InsertHandshakeError(ctx, id, handshakeErr)

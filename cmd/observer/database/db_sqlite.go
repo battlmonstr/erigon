@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     compat_fork_updated INTEGER,
 
     client_id TEXT,
+    network_id INTEGER,
     handshake_updated INTEGER,
     handshake_retry_time INTEGER,
     
@@ -108,6 +109,13 @@ SELECT ping_try FROM nodes WHERE id = ?
 	sqlUpdateClientID = `
 UPDATE nodes SET 
 	client_id = ?, 
+	handshake_updated = ?
+WHERE id = ?
+`
+
+	sqlUpdateNetworkID = `
+UPDATE nodes SET 
+	network_id = ?, 
 	handshake_updated = ?
 WHERE id = ?
 `
@@ -357,6 +365,16 @@ func (db *DBSQLite) UpdateClientID(ctx context.Context, id NodeID, clientID stri
 	_, err := db.db.ExecContext(ctx, sqlUpdateClientID, clientID, updated, id)
 	if err != nil {
 		return fmt.Errorf("UpdateClientID failed to update a node: %w", err)
+	}
+	return nil
+}
+
+func (db *DBSQLite) UpdateNetworkID(ctx context.Context, id NodeID, networkID uint) error {
+	updated := time.Now().Unix()
+
+	_, err := db.db.ExecContext(ctx, sqlUpdateNetworkID, networkID, updated, id)
+	if err != nil {
+		return fmt.Errorf("UpdateNetworkID failed: %w", err)
 	}
 	return nil
 }

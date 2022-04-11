@@ -40,8 +40,7 @@ type Interrogator struct {
 type InterrogationResult struct {
 	Node               *enode.Node
 	IsCompatFork       *bool
-	ClientID           *string
-	HandshakeErr       *HandshakeError
+	HandshakeResult    *DiplomatResult
 	HandshakeRetryTime *time.Time
 	KeygenKeys         []*ecdsa.PublicKey
 	Peers              []*enode.Node
@@ -89,22 +88,23 @@ func (interrogator *Interrogator) Run(ctx context.Context) (*InterrogationResult
 	utils.Sleep(ctx, 500*time.Millisecond)
 
 	// request client ID
-	var clientID *string
-	var handshakeErr *HandshakeError
+	var handshakeResult *DiplomatResult
 	var handshakeRetryTime *time.Time
 	if (interrogator.handshakeRetryTime == nil) || interrogator.handshakeRetryTime.Before(time.Now()) {
-		clientID, handshakeErr = interrogator.diplomat.Run(ctx)
+		result := interrogator.diplomat.Run(ctx)
+		clientID := result.ClientID
 		if (clientID != nil) && IsClientIDBlacklisted(*clientID) {
 			return nil, NewInterrogationError(InterrogationErrorBlacklistedClientID, errors.New(*clientID))
 		}
+		handshakeResult = &result
 		handshakeRetryTime = new(time.Time)
-		*handshakeRetryTime = interrogator.diplomat.NextRetryTime(handshakeErr)
+		*handshakeRetryTime = interrogator.diplomat.NextRetryTime(result.HandshakeErr)
 	}
 
 	// request ENR
 	var forkID *forkid.ID
 	var enr *enode.Node
-	if (clientID == nil) || isENRRequestSupportedByClientID(*clientID) {
+	if (handshakeResult == nil) || (handshakeResult.ClientID == nil) || isENRRequestSupportedByClientID(*handshakeResult.ClientID) {
 		enr, err = interrogator.transport.RequestENR(interrogator.node)
 	}
 	if err != nil {
@@ -163,8 +163,7 @@ func (interrogator *Interrogator) Run(ctx context.Context) (*InterrogationResult
 	result := InterrogationResult{
 		interrogator.node,
 		isCompatFork,
-		clientID,
-		handshakeErr,
+		handshakeResult,
 		handshakeRetryTime,
 		keys,
 		peers,

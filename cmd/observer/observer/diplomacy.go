@@ -157,7 +157,8 @@ func (diplomacy *Diplomacy) Run(ctx context.Context) error {
 		go func(id database.NodeID) {
 			defer sem.Release(1)
 
-			clientID, handshakeErr := diplomat.Run(ctx)
+			result := diplomat.Run(ctx)
+			clientID := result.ClientID
 
 			if clientID != nil {
 				atomic.AddUint64(clientIDCountPtr, 1)
@@ -169,10 +170,10 @@ func (diplomacy *Diplomacy) Run(ctx context.Context) error {
 				*isCompatFork = false
 			}
 
-			nextRetryTime := diplomat.NextRetryTime(handshakeErr)
+			nextRetryTime := diplomat.NextRetryTime(result.HandshakeErr)
 
 			diplomacy.saveQueue.EnqueueTask(ctx, func(ctx context.Context) error {
-				return diplomacy.saveDiplomatResult(ctx, id, clientID, handshakeErr, isCompatFork, nextRetryTime)
+				return diplomacy.saveDiplomatResult(ctx, id, result, isCompatFork, nextRetryTime)
 			})
 		}(id)
 	}
@@ -182,13 +183,12 @@ func (diplomacy *Diplomacy) Run(ctx context.Context) error {
 func (diplomacy *Diplomacy) saveDiplomatResult(
 	ctx context.Context,
 	id database.NodeID,
-	clientID *string,
-	handshakeErr *HandshakeError,
+	result DiplomatResult,
 	isCompatFork *bool,
 	nextRetryTime time.Time,
 ) error {
-	if clientID != nil {
-		dbErr := diplomacy.db.UpdateClientID(ctx, id, *clientID)
+	if result.ClientID != nil {
+		dbErr := diplomacy.db.UpdateClientID(ctx, id, *result.ClientID)
 		if dbErr != nil {
 			return dbErr
 		}
@@ -199,8 +199,15 @@ func (diplomacy *Diplomacy) saveDiplomatResult(
 		}
 	}
 
-	if handshakeErr != nil {
-		dbErr := diplomacy.db.InsertHandshakeError(ctx, id, handshakeErr.StringCode())
+	if result.NetworkID != nil {
+		dbErr := diplomacy.db.UpdateNetworkID(ctx, id, uint(*result.NetworkID))
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
+	if result.HandshakeErr != nil {
+		dbErr := diplomacy.db.InsertHandshakeError(ctx, id, result.HandshakeErr.StringCode())
 		if dbErr != nil {
 			return dbErr
 		}
