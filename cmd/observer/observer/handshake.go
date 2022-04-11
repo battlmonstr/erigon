@@ -130,20 +130,21 @@ func Handshake(ctx context.Context, ip net.IP, rlpxPort int, pubkey *ecdsa.Publi
 	}
 	reader := bytes.NewReader(data)
 
-	switch messageID {
-	default:
-		return nil, NewHandshakeError(HandshakeErrorIDRead, nil, messageID)
-	case RLPxMessageIDDisconnect:
+	if messageID == RLPxMessageIDDisconnect {
 		var reason [1]p2p.DiscReason
 		if err = rlp.Decode(reader, &reason); err != nil {
 			return nil, NewHandshakeError(HandshakeErrorIDDisconnectDecode, err, 0)
 		}
 		return nil, NewHandshakeError(HandshakeErrorIDDisconnect, reason[0], uint64(reason[0]))
-	case RLPxMessageIDHello:
-		var message HelloMessage
-		if err = rlp.NewStream(reader, uint64(dataSize)).Decode(&message); err != nil {
-			return nil, NewHandshakeError(HandshakeErrorIDHelloDecode, err, 0)
-		}
-		return &message, nil
 	}
+	if messageID != RLPxMessageIDHello {
+		return nil, NewHandshakeError(HandshakeErrorIDUnexpectedMessage, nil, messageID)
+	}
+
+	var message HelloMessage
+	if err = rlp.NewStream(reader, uint64(dataSize)).Decode(&message); err != nil {
+		return nil, NewHandshakeError(HandshakeErrorIDHelloDecode, err, 0)
+	}
+
+	return &message, nil
 }
