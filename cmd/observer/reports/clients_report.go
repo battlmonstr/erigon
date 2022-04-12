@@ -17,7 +17,7 @@ type ClientsReport struct {
 	Clients []ClientsReportEntry
 }
 
-func CreateClientsReport(ctx context.Context, db database.DB, limit uint, maxPingTries uint) (*ClientsReport, error) {
+func CreateClientsReport(ctx context.Context, db database.DB, limit uint, maxPingTries uint, networkID uint) (*ClientsReport, error) {
 	groups := make(map[string]uint)
 	unknownCount := uint(0)
 	enumFunc := func(clientID *string) {
@@ -31,7 +31,7 @@ func CreateClientsReport(ctx context.Context, db database.DB, limit uint, maxPin
 			unknownCount++
 		}
 	}
-	if err := db.EnumerateClientIDs(ctx, maxPingTries, enumFunc); err != nil {
+	if err := db.EnumerateClientIDs(ctx, maxPingTries, networkID, enumFunc); err != nil {
 		return nil, err
 	}
 

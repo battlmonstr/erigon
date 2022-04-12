@@ -9,6 +9,7 @@ import (
 
 type CommandFlags struct {
 	DataDir      string
+	Chain        string
 	ClientsLimit uint
 	MaxPingTries uint
 }
@@ -28,6 +29,7 @@ func NewCommand() *Command {
 		command: command,
 	}
 	instance.withDatadir()
+	instance.withChain()
 	instance.withClientsLimit()
 	instance.withMaxPingTries()
 
@@ -38,6 +40,11 @@ func (command *Command) withDatadir() {
 	flag := utils.DataDirFlag
 	command.command.Flags().StringVar(&command.flags.DataDir, flag.Name, flag.Value.String(), flag.Usage)
 	must(command.command.MarkFlagDirname(utils.DataDirFlag.Name))
+}
+
+func (command *Command) withChain() {
+	flag := utils.ChainFlag
+	command.command.Flags().StringVar(&command.flags.Chain, flag.Name, flag.Value, flag.Usage)
 }
 
 func (command *Command) withClientsLimit() {

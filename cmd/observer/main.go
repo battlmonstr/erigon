@@ -9,6 +9,7 @@ import (
 	"github.com/ledgerwatch/erigon/cmd/observer/observer"
 	"github.com/ledgerwatch/erigon/cmd/observer/reports"
 	"github.com/ledgerwatch/erigon/cmd/utils"
+	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/log/v3"
 	"path/filepath"
 )
@@ -29,7 +30,8 @@ func mainWithFlags(ctx context.Context, flags observer.CommandFlags) error {
 		return err
 	}
 
-	go observer.StatusLoggerLoop(ctx, db, flags.StatusLogPeriod, log.Root())
+	networkID := uint(params.NetworkIDByChainName(flags.Chain))
+	go observer.StatusLoggerLoop(ctx, db, networkID, flags.StatusLogPeriod, log.Root())
 
 	crawlerConfig := observer.CrawlerConfig{
 		Chain:            flags.Chain,
@@ -62,11 +64,13 @@ func reportWithFlags(ctx context.Context, flags reports.CommandFlags) error {
 		return err
 	}
 
-	statusReport, err := reports.CreateStatusReport(ctx, db, flags.MaxPingTries)
+	networkID := uint(params.NetworkIDByChainName(flags.Chain))
+
+	statusReport, err := reports.CreateStatusReport(ctx, db, flags.MaxPingTries, networkID)
 	if err != nil {
 		return err
 	}
-	clientsReport, err := reports.CreateClientsReport(ctx, db, flags.ClientsLimit, flags.MaxPingTries)
+	clientsReport, err := reports.CreateClientsReport(ctx, db, flags.ClientsLimit, flags.MaxPingTries, networkID)
 	if err != nil {
 		return err
 	}
