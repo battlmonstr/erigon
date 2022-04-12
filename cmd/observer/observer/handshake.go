@@ -20,6 +20,8 @@ import (
 const (
 	RLPxMessageIDHello      = 0
 	RLPxMessageIDDisconnect = 1
+	RLPxMessageIDPing       = 2
+	RLPxMessageIDPong       = 3
 )
 
 // HelloMessage is the RLPx Hello message.
@@ -176,6 +178,11 @@ func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError Handshak
 		return NewHandshakeError(HandshakeErrorIDRead, err, 0)
 	}
 
+	if messageID == RLPxMessageIDPing {
+		pongData, _ := rlp.EncodeToBytes(make([]string, 0, 1))
+		go func() { _, _ = conn.Write(RLPxMessageIDPong, pongData) }()
+		return readMessage(conn, expectedMessageID, decodeError, message)
+	}
 	if messageID == RLPxMessageIDDisconnect {
 		var reason [1]p2p.DiscReason
 		if err = rlp.DecodeBytes(data, &reason); err != nil {
