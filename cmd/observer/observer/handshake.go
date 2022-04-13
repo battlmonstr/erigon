@@ -13,6 +13,7 @@ import (
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rlp"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -185,7 +186,11 @@ func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError Handshak
 	}
 	if messageID == RLPxMessageIDDisconnect {
 		var reason [1]p2p.DiscReason
-		if err = rlp.DecodeBytes(data, &reason); err != nil {
+		err = rlp.DecodeBytes(data, &reason)
+		if (err != nil) && strings.Contains(err.Error(), "rlp: expected input list") {
+			err = rlp.DecodeBytes(data, &reason[0])
+		}
+		if err != nil {
 			return NewHandshakeError(HandshakeErrorIDDisconnectDecode, err, 0)
 		}
 		return NewHandshakeError(HandshakeErrorIDDisconnect, reason[0], uint64(reason[0]))
