@@ -34,6 +34,7 @@ type DB interface {
 
 	UpdateClientID(ctx context.Context, id NodeID, clientID string) error
 	UpdateNetworkID(ctx context.Context, id NodeID, networkID uint) error
+	UpdateEthVersion(ctx context.Context, id NodeID, ethVersion uint) error
 	InsertHandshakeError(ctx context.Context, id NodeID, handshakeErr string) error
 	DeleteHandshakeErrors(ctx context.Context, id NodeID) error
 	FindHandshakeLastErrors(ctx context.Context, id NodeID, limit uint) ([]HandshakeError, error)

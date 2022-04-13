@@ -206,6 +206,13 @@ func (diplomacy *Diplomacy) saveDiplomatResult(
 		}
 	}
 
+	if result.EthVersion != nil {
+		dbErr := diplomacy.db.UpdateEthVersion(ctx, id, uint(*result.EthVersion))
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
 	if result.HandshakeErr != nil {
 		dbErr := diplomacy.db.InsertHandshakeError(ctx, id, result.HandshakeErr.StringCode())
 		if dbErr != nil {

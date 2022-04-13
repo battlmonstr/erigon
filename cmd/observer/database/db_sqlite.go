@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS nodes (
 
     client_id TEXT,
     network_id INTEGER,
+    eth_version INTEGER,
     handshake_updated INTEGER,
     handshake_retry_time INTEGER,
     
@@ -117,6 +118,13 @@ WHERE id = ?
 	sqlUpdateNetworkID = `
 UPDATE nodes SET 
 	network_id = ?, 
+	handshake_updated = ?
+WHERE id = ?
+`
+
+	sqlUpdateEthVersion = `
+UPDATE nodes SET 
+	eth_version = ?, 
 	handshake_updated = ?
 WHERE id = ?
 `
@@ -379,6 +387,16 @@ func (db *DBSQLite) UpdateNetworkID(ctx context.Context, id NodeID, networkID ui
 	_, err := db.db.ExecContext(ctx, sqlUpdateNetworkID, networkID, updated, id)
 	if err != nil {
 		return fmt.Errorf("UpdateNetworkID failed: %w", err)
+	}
+	return nil
+}
+
+func (db *DBSQLite) UpdateEthVersion(ctx context.Context, id NodeID, ethVersion uint) error {
+	updated := time.Now().Unix()
+
+	_, err := db.db.ExecContext(ctx, sqlUpdateEthVersion, ethVersion, updated, id)
+	if err != nil {
+		return fmt.Errorf("UpdateEthVersion failed: %w", err)
 	}
 	return nil
 }

@@ -429,6 +429,13 @@ func (crawler *Crawler) saveInterrogationResult(
 		}
 	}
 
+	if (result != nil) && (result.HandshakeResult != nil) && (result.HandshakeResult.EthVersion != nil) {
+		dbErr := crawler.db.UpdateEthVersion(ctx, id, uint(*result.HandshakeResult.EthVersion))
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
 	if (result != nil) && (result.HandshakeResult != nil) && (result.HandshakeResult.HandshakeErr != nil) {
 		dbErr := crawler.db.InsertHandshakeError(ctx, id, result.HandshakeResult.HandshakeErr.StringCode())
 		if dbErr != nil {

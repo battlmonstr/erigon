@@ -27,6 +27,7 @@ type Diplomat struct {
 type DiplomatResult struct {
 	ClientID     *string
 	NetworkID    *uint64
+	EthVersion   *uint32
 	HandshakeErr *HandshakeError
 }
 
@@ -67,11 +68,15 @@ func (diplomat *Diplomat) Run(ctx context.Context) DiplomatResult {
 	}
 	if hello != nil {
 		result.ClientID = &hello.ClientID
-		diplomat.log.Debug("Got client ID", "clientID", result.ClientID)
+		diplomat.log.Debug("Got client ID", "clientID", *result.ClientID)
 	}
 	if status != nil {
 		result.NetworkID = &status.NetworkID
-		diplomat.log.Debug("Got network ID", "networkID", result.NetworkID)
+		diplomat.log.Debug("Got network ID", "networkID", *result.NetworkID)
+	}
+	if status != nil {
+		result.EthVersion = &status.ProtocolVersion
+		diplomat.log.Debug("Got eth version", "ethVersion", *result.EthVersion)
 	}
 
 	return result
