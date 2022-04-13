@@ -184,6 +184,9 @@ func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError Handshak
 		go func() { _, _ = conn.Write(RLPxMessageIDPong, pongData) }()
 		return readMessage(conn, expectedMessageID, decodeError, message)
 	}
+	if messageID == 16+eth.GetPooledTransactionsMsg {
+		return readMessage(conn, expectedMessageID, decodeError, message)
+	}
 	if messageID == RLPxMessageIDDisconnect {
 		var reason [1]p2p.DiscReason
 		err = rlp.DecodeBytes(data, &reason)
