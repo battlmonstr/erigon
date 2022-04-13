@@ -1,7 +1,6 @@
 package observer
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -174,7 +173,7 @@ func Handshake(
 }
 
 func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError HandshakeErrorID, message interface{}) *HandshakeError {
-	messageID, data, dataSize, err := conn.Read()
+	messageID, data, _, err := conn.Read()
 	if err != nil {
 		return NewHandshakeError(HandshakeErrorIDRead, err, 0)
 	}
@@ -202,7 +201,7 @@ func readMessage(conn *rlpx.Conn, expectedMessageID uint64, decodeError Handshak
 		return NewHandshakeError(HandshakeErrorIDUnexpectedMessage, nil, messageID)
 	}
 
-	if err = rlp.NewStream(bytes.NewReader(data), uint64(dataSize)).Decode(message); err != nil {
+	if err = rlp.DecodeBytes(data, message); err != nil {
 		return NewHandshakeError(decodeError, err, 0)
 	}
 	return nil
