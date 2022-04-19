@@ -5,12 +5,14 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/ledgerwatch/erigon/common"
+	"github.com/ledgerwatch/erigon/core/forkid"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/eth/protocols/eth"
 	"github.com/ledgerwatch/erigon/p2p"
 	"github.com/ledgerwatch/erigon/p2p/rlpx"
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rlp"
+	"math/big"
 	"net"
 	"strings"
 	"time"
@@ -36,6 +38,19 @@ type HelloMessage struct {
 
 	// Ignore additional fields (for forward compatibility).
 	Rest []rlp.RawValue `rlp:"tail"`
+}
+
+// StatusMessage is the Ethereum Status message v63+.
+// (same as StatusPacket in eth/protocols/eth/protocol.go)
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#status-0x00
+type StatusMessage struct {
+	ProtocolVersion uint32
+	NetworkID       uint64
+	TD              *big.Int
+	Head            common.Hash
+	Genesis         common.Hash
+	ForkID          *forkid.ID     `rlp:"-"` // parsed from Rest if exists in v64+
+	Rest            []rlp.RawValue `rlp:"tail"`
 }
 
 type HandshakeErrorID string
@@ -116,7 +131,7 @@ func Handshake(
 	rlpxPort int,
 	pubkey *ecdsa.PublicKey,
 	myPrivateKey *ecdsa.PrivateKey,
-) (*HelloMessage, *eth.StatusPacket, *HandshakeError) {
+) (*HelloMessage, *StatusMessage, *HandshakeError) {
 	connectTimeout := 10 * time.Second
 	dialer := net.Dialer{
 		Timeout: connectTimeout,
@@ -164,9 +179,18 @@ func Handshake(
 		conn.SetSnappy(true)
 	}
 
-	var statusMessage eth.StatusPacket
+	var statusMessage StatusMessage
 	if err := readMessage(conn, 16+eth.StatusMsg, HandshakeErrorIDStatusDecode, &statusMessage); err != nil {
 		return &helloMessage, nil, err
+	}
+
+	// parse fork ID
+	if (statusMessage.ProtocolVersion >= 64) && (len(statusMessage.Rest) > 0) {
+		var forkID forkid.ID
+		if err := rlp.DecodeBytes(statusMessage.Rest[0], &forkID); err != nil {
+			return &helloMessage, nil, NewHandshakeError(HandshakeErrorIDStatusDecode, err, 0)
+		}
+		statusMessage.ForkID = &forkID
 	}
 
 	return &helloMessage, &statusMessage, nil

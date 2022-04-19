@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"github.com/ledgerwatch/erigon/cmd/observer/database"
-	"github.com/ledgerwatch/erigon/eth/protocols/eth"
 	"github.com/ledgerwatch/erigon/p2p"
 	"github.com/ledgerwatch/erigon/p2p/enode"
 	"github.com/ledgerwatch/log/v3"
@@ -52,7 +51,7 @@ func NewDiplomat(
 	return &instance
 }
 
-func (diplomat *Diplomat) handshake(ctx context.Context) (*HelloMessage, *eth.StatusPacket, *HandshakeError) {
+func (diplomat *Diplomat) handshake(ctx context.Context) (*HelloMessage, *StatusMessage, *HandshakeError) {
 	node := diplomat.node
 	return Handshake(ctx, node.IP(), node.TCP(), node.Pubkey(), diplomat.privateKey)
 }
