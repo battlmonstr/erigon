@@ -12,6 +12,7 @@ type CommandFlags struct {
 	Chain        string
 	ClientsLimit uint
 	MaxPingTries uint
+	Estimate     bool
 }
 
 type Command struct {
@@ -32,6 +33,7 @@ func NewCommand() *Command {
 	instance.withChain()
 	instance.withClientsLimit()
 	instance.withMaxPingTries()
+	instance.withEstimate()
 
 	return &instance
 }
@@ -63,6 +65,14 @@ func (command *Command) withMaxPingTries() {
 		Value: 3,
 	}
 	command.command.Flags().UintVar(&command.flags.MaxPingTries, flag.Name, flag.Value, flag.Usage)
+}
+
+func (command *Command) withEstimate() {
+	flag := cli.BoolFlag{
+		Name:  "estimate",
+		Usage: "Estimate totals including nodes that replied with 'too many peers'",
+	}
+	command.command.Flags().BoolVar(&command.flags.Estimate, flag.Name, false, flag.Usage)
 }
 
 func (command *Command) RawCommand() *cobra.Command {

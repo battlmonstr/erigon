@@ -222,6 +222,22 @@ WHERE (ping_try < ?)
     AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
 
+	sqlCountClients = `
+SELECT COUNT(*) FROM nodes
+WHERE (ping_try < ?)
+    AND (network_id = ?)
+    AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
+	AND (client_id LIKE ?)
+`
+
+	sqlCountClientsWithNetworkID = `
+SELECT COUNT(*) FROM nodes
+WHERE (ping_try < ?)
+    AND (network_id IS NOT NULL)
+    AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
+	AND (client_id LIKE ?)
+`
+
 	sqlEnumerateClientIDs = `
 SELECT client_id FROM nodes
 WHERE (ping_try < ?)
@@ -746,6 +762,24 @@ func (db *DBSQLite) CountIPs(ctx context.Context, maxPingTries uint, networkID u
 	var count uint
 	if err := row.Scan(&count); err != nil {
 		return 0, fmt.Errorf("CountIPs failed: %w", err)
+	}
+	return count, nil
+}
+
+func (db *DBSQLite) CountClients(ctx context.Context, clientIDPrefix string, maxPingTries uint, networkID uint) (uint, error) {
+	row := db.db.QueryRowContext(ctx, sqlCountClients, maxPingTries, networkID, clientIDPrefix+"%")
+	var count uint
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("CountClients failed: %w", err)
+	}
+	return count, nil
+}
+
+func (db *DBSQLite) CountClientsWithNetworkID(ctx context.Context, clientIDPrefix string, maxPingTries uint) (uint, error) {
+	row := db.db.QueryRowContext(ctx, sqlCountClientsWithNetworkID, maxPingTries, clientIDPrefix+"%")
+	var count uint
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("CountClientsWithNetworkID failed: %w", err)
 	}
 	return count, nil
 }

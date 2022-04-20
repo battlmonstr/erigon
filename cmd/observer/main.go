@@ -66,6 +66,15 @@ func reportWithFlags(ctx context.Context, flags reports.CommandFlags) error {
 
 	networkID := uint(params.NetworkIDByChainName(flags.Chain))
 
+	if flags.Estimate {
+		report, err := reports.CreateClientsEstimateReport(ctx, db, flags.ClientsLimit, flags.MaxPingTries, networkID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(report)
+		return nil
+	}
+
 	statusReport, err := reports.CreateStatusReport(ctx, db, flags.MaxPingTries, networkID)
 	if err != nil {
 		return err
