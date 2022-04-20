@@ -157,7 +157,7 @@ SELECT handshake_retry_time FROM nodes WHERE id = ?
 `
 
 	sqlCountHandshakeCandidates = `
-SELECT COUNT(id) FROM nodes
+SELECT COUNT(*) FROM nodes
 WHERE ((handshake_retry_time IS NULL) OR (handshake_retry_time < ?))
 	AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
@@ -191,7 +191,7 @@ UPDATE nodes SET crawl_retry_time = ? WHERE id = ?
 `
 
 	sqlCountCandidates = `
-SELECT COUNT(id) FROM nodes
+SELECT COUNT(*) FROM nodes
 WHERE ((crawl_retry_time IS NULL) OR (crawl_retry_time < ?))
 	AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
@@ -209,7 +209,7 @@ UPDATE nodes SET crawl_retry_time = ? WHERE id IN (123)
 `
 
 	sqlCountNodes = `
-SELECT COUNT(id) FROM nodes
+SELECT COUNT(*) FROM nodes
 WHERE (ping_try < ?)
     AND ((network_id = ?) OR (network_id IS NULL))
     AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
