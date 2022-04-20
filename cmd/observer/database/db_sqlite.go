@@ -156,6 +156,12 @@ UPDATE nodes SET handshake_retry_time = ? WHERE id = ?
 SELECT handshake_retry_time FROM nodes WHERE id = ?
 `
 
+	sqlCountHandshakeCandidates = `
+SELECT COUNT(id) FROM nodes
+WHERE ((handshake_retry_time IS NULL) OR (handshake_retry_time < ?))
+	AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
+`
+
 	sqlFindHandshakeCandidates = `
 SELECT id FROM nodes
 WHERE ((handshake_retry_time IS NULL) OR (handshake_retry_time < ?))
@@ -182,6 +188,12 @@ SELECT neighbor_keys FROM nodes WHERE id = ?
 
 	sqlUpdateCrawlRetryTime = `
 UPDATE nodes SET crawl_retry_time = ? WHERE id = ?
+`
+
+	sqlCountCandidates = `
+SELECT COUNT(id) FROM nodes
+WHERE ((crawl_retry_time IS NULL) OR (crawl_retry_time < ?))
+	AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
 
 	sqlFindCandidates = `
@@ -484,6 +496,16 @@ func (db *DBSQLite) FindHandshakeRetryTime(ctx context.Context, id NodeID) (*tim
 	return &retryTime, nil
 }
 
+func (db *DBSQLite) CountHandshakeCandidates(ctx context.Context) (uint, error) {
+	retryTimeBefore := time.Now().Unix()
+	row := db.db.QueryRowContext(ctx, sqlCountHandshakeCandidates, retryTimeBefore)
+	var count uint
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("CountHandshakeCandidates failed: %w", err)
+	}
+	return count, nil
+}
+
 func (db *DBSQLite) FindHandshakeCandidates(
 	ctx context.Context,
 	limit uint,
@@ -609,6 +631,16 @@ func (db *DBSQLite) UpdateCrawlRetryTime(ctx context.Context, id NodeID, retryTi
 		return fmt.Errorf("UpdateCrawlRetryTime failed: %w", err)
 	}
 	return nil
+}
+
+func (db *DBSQLite) CountCandidates(ctx context.Context) (uint, error) {
+	retryTimeBefore := time.Now().Unix()
+	row := db.db.QueryRowContext(ctx, sqlCountCandidates, retryTimeBefore)
+	var count uint
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("CountCandidates failed: %w", err)
+	}
+	return count, nil
 }
 
 func (db *DBSQLite) FindCandidates(

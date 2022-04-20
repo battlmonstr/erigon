@@ -147,6 +147,18 @@ func (db DBRetrier) FindHandshakeRetryTime(ctx context.Context, id NodeID) (*tim
 	return result, err
 }
 
+func (db DBRetrier) CountHandshakeCandidates(ctx context.Context) (uint, error) {
+	resultAny, err := db.retry(ctx, "CountHandshakeCandidates", func(ctx context.Context) (interface{}, error) {
+		return db.db.CountHandshakeCandidates(ctx)
+	})
+
+	if resultAny == nil {
+		return 0, err
+	}
+	result := resultAny.(uint)
+	return result, err
+}
+
 func (db DBRetrier) TakeHandshakeCandidates(ctx context.Context, limit uint) ([]NodeID, error) {
 	resultAny, err := db.retry(ctx, "TakeHandshakeCandidates", func(ctx context.Context) (interface{}, error) {
 		return db.db.TakeHandshakeCandidates(ctx, limit)
@@ -190,6 +202,18 @@ func (db DBRetrier) UpdateCrawlRetryTime(ctx context.Context, id NodeID, retryTi
 		return nil, db.db.UpdateCrawlRetryTime(ctx, id, retryTime)
 	})
 	return err
+}
+
+func (db DBRetrier) CountCandidates(ctx context.Context) (uint, error) {
+	resultAny, err := db.retry(ctx, "CountCandidates", func(ctx context.Context) (interface{}, error) {
+		return db.db.CountCandidates(ctx)
+	})
+
+	if resultAny == nil {
+		return 0, err
+	}
+	result := resultAny.(uint)
+	return result, err
 }
 
 func (db DBRetrier) TakeCandidates(ctx context.Context, limit uint) ([]NodeID, error) {

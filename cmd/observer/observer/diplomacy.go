@@ -97,7 +97,7 @@ func (diplomacy *Diplomacy) Run(ctx context.Context) error {
 	candidatesChan := diplomacy.startSelectCandidates(ctx)
 	sem := semaphore.NewWeighted(int64(diplomacy.concurrencyLimit))
 
-	count := 0
+	doneCount := 0
 	statusLogDate := time.Now()
 	clientIDCountPtr := new(uint64)
 
@@ -110,10 +110,26 @@ func (diplomacy *Diplomacy) Run(ctx context.Context) error {
 			}
 		}
 
-		count++
+		doneCount++
 		if time.Since(statusLogDate) > diplomacy.statusLogPeriod {
 			clientIDCount := atomic.LoadUint64(clientIDCountPtr)
-			diplomacy.log.Info("Handshaking", "count", count, "clientIDCount", clientIDCount)
+
+			remainingCount, err := diplomacy.db.CountHandshakeCandidates(ctx)
+			if err != nil {
+				if diplomacy.db.IsConflictError(err) {
+					diplomacy.log.Warn("Failed to count handshake candidates", "err", err)
+					sem.Release(1)
+					continue
+				}
+				return fmt.Errorf("failed to count handshake candidates: %w", err)
+			}
+
+			diplomacy.log.Info(
+				"Handshaking",
+				"done", doneCount,
+				"remaining", remainingCount,
+				"clientIDs", clientIDCount,
+			)
 			statusLogDate = time.Now()
 		}
 

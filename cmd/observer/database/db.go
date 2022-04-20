@@ -40,6 +40,7 @@ type DB interface {
 	FindHandshakeLastErrors(ctx context.Context, id NodeID, limit uint) ([]HandshakeError, error)
 	UpdateHandshakeRetryTime(ctx context.Context, id NodeID, retryTime time.Time) error
 	FindHandshakeRetryTime(ctx context.Context, id NodeID) (*time.Time, error)
+	CountHandshakeCandidates(ctx context.Context) (uint, error)
 	FindHandshakeCandidates(ctx context.Context, limit uint) ([]NodeID, error)
 	MarkTakenHandshakeCandidates(ctx context.Context, nodes []NodeID) error
 	// TakeHandshakeCandidates runs FindHandshakeCandidates + MarkTakenHandshakeCandidates in a transaction.
@@ -51,6 +52,7 @@ type DB interface {
 	FindNeighborBucketKeys(ctx context.Context, id NodeID) ([]string, error)
 
 	UpdateCrawlRetryTime(ctx context.Context, id NodeID, retryTime time.Time) error
+	CountCandidates(ctx context.Context) (uint, error)
 	FindCandidates(ctx context.Context, limit uint) ([]NodeID, error)
 	MarkTakenNodes(ctx context.Context, nodes []NodeID) error
 	// TakeCandidates runs FindCandidates + MarkTakenNodes in a transaction.

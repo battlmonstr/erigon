@@ -190,7 +190,23 @@ func (crawler *Crawler) Run(ctx context.Context) error {
 		crawledCount++
 		if time.Since(crawledCountLogDate) > crawler.config.StatusLogPeriod {
 			foundPeersCount := atomic.LoadUint64(foundPeersCountPtr)
-			crawler.log.Info("Crawling", "crawledCount", crawledCount, "foundPeersCount", foundPeersCount)
+
+			remainingCount, err := crawler.db.CountCandidates(ctx)
+			if err != nil {
+				if crawler.db.IsConflictError(err) {
+					crawler.log.Warn("Failed to count candidates", "err", err)
+					sem.Release(1)
+					continue
+				}
+				return fmt.Errorf("failed to count candidates: %w", err)
+			}
+
+			crawler.log.Info(
+				"Crawling",
+				"crawled", crawledCount,
+				"remaining", remainingCount,
+				"foundPeers", foundPeersCount,
+			)
 			crawledCountLogDate = time.Now()
 		}
 
