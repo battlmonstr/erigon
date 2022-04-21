@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     client_id TEXT,
     network_id INTEGER,
     eth_version INTEGER,
+    handshake_transient_err INTEGER NOT NULL DEFAULT 0,
     handshake_updated INTEGER,
     handshake_retry_time INTEGER,
     
@@ -125,6 +126,13 @@ WHERE id = ?
 	sqlUpdateEthVersion = `
 UPDATE nodes SET 
 	eth_version = ?, 
+	handshake_updated = ?
+WHERE id = ?
+`
+
+	sqlUpdateHandshakeTransientError = `
+UPDATE nodes SET 
+	handshake_transient_err = ?, 
 	handshake_updated = ?
 WHERE id = ?
 `
@@ -425,6 +433,16 @@ func (db *DBSQLite) UpdateEthVersion(ctx context.Context, id NodeID, ethVersion 
 	_, err := db.db.ExecContext(ctx, sqlUpdateEthVersion, ethVersion, updated, id)
 	if err != nil {
 		return fmt.Errorf("UpdateEthVersion failed: %w", err)
+	}
+	return nil
+}
+
+func (db *DBSQLite) UpdateHandshakeTransientError(ctx context.Context, id NodeID, hasTransientErr bool) error {
+	updated := time.Now().Unix()
+
+	_, err := db.db.ExecContext(ctx, sqlUpdateHandshakeTransientError, hasTransientErr, updated, id)
+	if err != nil {
+		return fmt.Errorf("UpdateHandshakeTransientError failed: %w", err)
 	}
 	return nil
 }

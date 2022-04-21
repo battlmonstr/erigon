@@ -459,6 +459,13 @@ func (crawler *Crawler) saveInterrogationResult(
 		}
 	}
 
+	if (result != nil) && (result.HandshakeResult != nil) {
+		dbErr := crawler.db.UpdateHandshakeTransientError(ctx, id, result.HandshakeResult.HasTransientErr)
+		if dbErr != nil {
+			return dbErr
+		}
+	}
+
 	if handshakeRetryTime != nil {
 		dbErr := crawler.db.UpdateHandshakeRetryTime(ctx, id, *handshakeRetryTime)
 		if dbErr != nil {

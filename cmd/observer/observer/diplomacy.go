@@ -236,6 +236,11 @@ func (diplomacy *Diplomacy) saveDiplomatResult(
 		}
 	}
 
+	dbErr := diplomacy.db.UpdateHandshakeTransientError(ctx, id, result.HasTransientErr)
+	if dbErr != nil {
+		return dbErr
+	}
+
 	if isCompatFork != nil {
 		dbErr := diplomacy.db.UpdateForkCompatibility(ctx, id, *isCompatFork)
 		if dbErr != nil {

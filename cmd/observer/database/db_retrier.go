@@ -102,6 +102,13 @@ func (db DBRetrier) UpdateEthVersion(ctx context.Context, id NodeID, ethVersion 
 	return err
 }
 
+func (db DBRetrier) UpdateHandshakeTransientError(ctx context.Context, id NodeID, hasTransientErr bool) error {
+	_, err := db.retry(ctx, "UpdateHandshakeTransientError", func(ctx context.Context) (interface{}, error) {
+		return nil, db.db.UpdateHandshakeTransientError(ctx, id, hasTransientErr)
+	})
+	return err
+}
+
 func (db DBRetrier) InsertHandshakeError(ctx context.Context, id NodeID, handshakeErr string) error {
 	_, err := db.retry(ctx, "InsertHandshakeError", func(ctx context.Context) (interface{}, error) {
 		return nil, db.db.InsertHandshakeError(ctx, id, handshakeErr)

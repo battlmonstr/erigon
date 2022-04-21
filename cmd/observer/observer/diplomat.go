@@ -24,10 +24,11 @@ type Diplomat struct {
 }
 
 type DiplomatResult struct {
-	ClientID     *string
-	NetworkID    *uint64
-	EthVersion   *uint32
-	HandshakeErr *HandshakeError
+	ClientID        *string
+	NetworkID       *uint64
+	EthVersion      *uint32
+	HandshakeErr    *HandshakeError
+	HasTransientErr bool
 }
 
 func NewDiplomat(
@@ -61,14 +62,18 @@ func (diplomat *Diplomat) Run(ctx context.Context) DiplomatResult {
 	hello, status, handshakeErr := diplomat.handshake(ctx)
 
 	var result DiplomatResult
+
 	if (handshakeErr != nil) && !errors.Is(handshakeErr, context.Canceled) {
 		result.HandshakeErr = handshakeErr
 		diplomat.log.Debug("Failed to handshake", "err", handshakeErr)
 	}
+	result.HasTransientErr = diplomat.hasRecentTransientError(handshakeErr)
+
 	if hello != nil {
 		result.ClientID = &hello.ClientID
 		diplomat.log.Debug("Got client ID", "clientID", *result.ClientID)
 	}
+
 	if status != nil {
 		result.NetworkID = &status.NetworkID
 		diplomat.log.Debug("Got network ID", "networkID", *result.NetworkID)
@@ -119,6 +124,20 @@ func (diplomat *Diplomat) NextRetryDelay(handshakeErr *HandshakeError) time.Dura
 
 func (diplomat *Diplomat) transientError() *HandshakeError {
 	return NewHandshakeError(HandshakeErrorIDDisconnect, p2p.DiscTooManyPeers, uint64(p2p.DiscTooManyPeers))
+}
+
+func (diplomat *Diplomat) hasRecentTransientError(handshakeErr *HandshakeError) bool {
+	if handshakeErr == nil {
+		return false
+	}
+
+	dbHandshakeErr := database.HandshakeError{
+		StringCode: handshakeErr.StringCode(),
+		Time:       time.Now(),
+	}
+
+	lastErrors := append([]database.HandshakeError{dbHandshakeErr}, diplomat.handshakeLastErrors...)
+	return containsHandshakeError(diplomat.transientError(), lastErrors)
 }
 
 func containsHandshakeError(target *HandshakeError, list []database.HandshakeError) bool {
