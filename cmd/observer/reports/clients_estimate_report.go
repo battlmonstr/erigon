@@ -58,8 +58,10 @@ func CreateClientsEstimateReport(
 		const z = 1.96
 		intervalLow, intervalHigh := waldInterval(knownNetworkCount, sameNetworkCount, z)
 
-		// TODO
-		transientErrCount := 1
+		transientErrCount, err := db.CountClientsWithHandshakeTransientError(ctx, clientName+"/", maxPingTries)
+		if err != nil {
+			return nil, err
+		}
 
 		countLow := sameNetworkCount + uint(math.Round(float64(transientErrCount)*intervalLow))
 		countHigh := sameNetworkCount + uint(math.Round(float64(transientErrCount)*intervalHigh))

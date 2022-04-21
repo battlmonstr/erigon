@@ -65,5 +65,6 @@ type DB interface {
 	CountIPs(ctx context.Context, maxPingTries uint, networkID uint) (uint, error)
 	CountClients(ctx context.Context, clientIDPrefix string, maxPingTries uint, networkID uint) (uint, error)
 	CountClientsWithNetworkID(ctx context.Context, clientIDPrefix string, maxPingTries uint) (uint, error)
+	CountClientsWithHandshakeTransientError(ctx context.Context, clientIDPrefix string, maxPingTries uint) (uint, error)
 	EnumerateClientIDs(ctx context.Context, maxPingTries uint, networkID uint, enumFunc func(clientID *string)) error
 }

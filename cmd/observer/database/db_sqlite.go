@@ -246,6 +246,15 @@ WHERE (ping_try < ?)
 	AND (client_id LIKE ?)
 `
 
+	sqlCountClientsWithHandshakeTransientError = `
+SELECT COUNT(*) FROM nodes
+WHERE (ping_try < ?)
+    AND (handshake_transient_err = 1)
+    AND (network_id IS NULL)
+    AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
+	AND (client_id LIKE ?)
+`
+
 	sqlEnumerateClientIDs = `
 SELECT client_id FROM nodes
 WHERE (ping_try < ?)
@@ -798,6 +807,15 @@ func (db *DBSQLite) CountClientsWithNetworkID(ctx context.Context, clientIDPrefi
 	var count uint
 	if err := row.Scan(&count); err != nil {
 		return 0, fmt.Errorf("CountClientsWithNetworkID failed: %w", err)
+	}
+	return count, nil
+}
+
+func (db *DBSQLite) CountClientsWithHandshakeTransientError(ctx context.Context, clientIDPrefix string, maxPingTries uint) (uint, error) {
+	row := db.db.QueryRowContext(ctx, sqlCountClientsWithHandshakeTransientError, maxPingTries, clientIDPrefix+"%")
+	var count uint
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("CountClientsWithHandshakeTransientError failed: %w", err)
 	}
 	return count, nil
 }
