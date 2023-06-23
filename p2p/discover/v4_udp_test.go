@@ -22,9 +22,8 @@ import (
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
+	"github.com/ledgerwatch/erigon/crypto"
 	"math/rand"
 	"net"
 	"reflect"
@@ -44,9 +43,8 @@ import (
 var (
 	futureExp          = uint64(time.Now().Add(10 * time.Hour).Unix())
 	testTarget         = v4wire.Pubkey{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
-	testRemote         = v4wire.Endpoint{IP: net.ParseIP("1.1.1.1").To4(), UDP: 1, TCP: 2}
-	testLocalAnnounced = v4wire.Endpoint{IP: net.ParseIP("2.2.2.2").To4(), UDP: 3, TCP: 4}
-	testLocal          = v4wire.Endpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
+	testRemote         = v4wire.Endpoint{IP: net.ParseIP("127.0.0.1").To4(), UDP: 30303, TCP: 30303}
+	testLocalAnnounced = v4wire.Endpoint{IP: net.ParseIP("127.0.0.1").To4(), UDP: 30321, TCP: 30321}
 )
 
 type udpTest struct {
@@ -69,15 +67,20 @@ func newUDPTestContext(ctx context.Context, t *testing.T, logger log.Logger) *ud
 
 	replyTimeout := contextGetReplyTimeout(ctx)
 	if replyTimeout == 0 {
-		replyTimeout = 50 * time.Millisecond
+		replyTimeout = time.Second
+	}
+
+	remoteKey, remoteKeyErr := crypto.LoadECDSA("/Users/daniel/Library/Silkworm/nodekey")
+	if remoteKeyErr != nil {
+		panic(remoteKeyErr)
 	}
 
 	test := &udpTest{
 		t:          t,
 		pipe:       newpipe(),
 		localkey:   newkey(),
-		remotekey:  newkey(),
-		remoteaddr: &net.UDPAddr{IP: net.IP{10, 0, 1, 99}, Port: 30303},
+		remotekey:  remoteKey,
+		remoteaddr: &net.UDPAddr{IP: testRemote.IP, Port: int(testRemote.UDP)},
 	}
 	tmpDir := t.TempDir()
 
@@ -87,6 +90,7 @@ func newUDPTestContext(ctx context.Context, t *testing.T, logger log.Logger) *ud
 		panic(err)
 	}
 	ln := enode.NewLocalNode(test.db, test.localkey, logger)
+	ln.SetStaticIP(testLocalAnnounced.IP)
 	test.udp, err = ListenV4(ctx, test.pipe, ln, Config{
 		PrivateKey: test.localkey,
 		Log:        testlog.Logger(t, log.LvlError),
@@ -670,8 +674,8 @@ func contextGetPrivateKeyGenerator(ctx context.Context) func() (*ecdsa.PrivateKe
 
 // dgramPipe is a fake UDP socket. It queues all sent datagrams.
 type dgramPipe struct {
-	queue  chan dgram
-	closed chan struct{}
+	*net.UDPConn
+	queue chan dgram
 }
 
 type dgram struct {
@@ -680,52 +684,33 @@ type dgram struct {
 }
 
 func newpipe() *dgramPipe {
+	conn, err := startServer()
+	if err != nil {
+		panic(err)
+	}
 	return &dgramPipe{
+		conn,
 		make(chan dgram, 1000),
-		make(chan struct{}),
 	}
 }
 
-// WriteToUDP queues a datagram.
-func (c *dgramPipe) WriteToUDP(b []byte, to *net.UDPAddr) (n int, err error) {
-	msg := make([]byte, len(b))
-	copy(msg, b)
+func startServer() (*net.UDPConn, error) {
+	addr, err := net.ResolveUDPAddr("udp", ":30321")
+	if err != nil {
+		return nil, err
+	}
 
-	n = 0
-	err = errors.New("closed")
-	defer recover()
-
-	c.queue <- dgram{*to, b}
-	return len(b), nil
-}
-
-// ReadFromUDP just hangs until the pipe is closed.
-func (c *dgramPipe) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
-	<-c.closed
-	return 0, nil, io.EOF
-}
-
-func (c *dgramPipe) Close() error {
-	close(c.queue)
-	close(c.closed)
-	return nil
-}
-
-func (c *dgramPipe) LocalAddr() net.Addr {
-	return &net.UDPAddr{IP: testLocal.IP, Port: int(testLocal.UDP)}
+	return net.ListenUDP("udp", addr)
 }
 
 func (c *dgramPipe) receive() (dgram, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	const maxPacketSize = 1280
+	buf := make([]byte, maxPacketSize)
 
-	select {
-	case p, isOpen := <-c.queue:
-		if isOpen {
-			return p, nil
-		}
-		return dgram{}, errClosed
-	case <-ctx.Done():
-		return dgram{}, errTimeout
+	if err := c.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		return dgram{}, err
 	}
+
+	_, from, err := c.ReadFromUDP(buf)
+	return dgram{*from, buf}, err
 }
