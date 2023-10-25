@@ -26,6 +26,7 @@ func init() {
 	scenarios.MustRegisterStepHandlers(
 		scenarios.StepHandler(CheckTxPoolContent),
 		scenarios.StepHandler(SendTxWithDynamicFee),
+		scenarios.StepHandler(SendTxWithDynamicFee2),
 		scenarios.StepHandler(AwaitBlocks),
 	)
 }
@@ -87,6 +88,16 @@ func Transfer(ctx context.Context, toAddr, fromAddr string, value uint64, wait b
 	}
 
 	return hash, nil
+}
+
+func SendTxWithDynamicFee2(ctx context.Context, to, from string, amount uint64) ([]libcommon.Hash, error) {
+	for {
+		_, err := Transfer(ctx, to, from, amount, false)
+		if err != nil {
+			return nil, err
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 func SendTxWithDynamicFee(ctx context.Context, to, from string, amount uint64) ([]libcommon.Hash, error) {

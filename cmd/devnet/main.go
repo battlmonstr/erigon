@@ -261,7 +261,7 @@ func action(ctx *cli.Context) error {
 				{Text: "InitSubscriptions", Args: []any{[]requests.SubMethod{requests.Methods.ETHNewHeads}}},
 				{Text: "PingErigonRpc"},
 				{Text: "CheckTxPoolContent", Args: []any{0, 0, 0}},
-				{Text: "SendTxWithDynamicFee", Args: []any{recipientAddress, accounts.DevAddress, sendValue}},
+				{Text: "SendTxWithDynamicFee2", Args: []any{recipientAddress, accounts.DevAddress, sendValue}},
 				{Text: "AwaitBlocks", Args: []any{2 * time.Second}},
 			},
 		},
@@ -407,37 +407,21 @@ func initDevnet(ctx *cli.Context, logger log.Logger) (devnet.Devnet, error) {
 						&args.BlockProducer{
 							NodeArgs: args.NodeArgs{
 								ConsoleVerbosity: "0",
-								DirVerbosity:     "5",
+								DirVerbosity:     "4",
 								HeimdallGRpc:     heimdallGrpc,
 							},
 							AccountSlots: 200,
 						},
-						&args.BlockProducer{
-							NodeArgs: args.NodeArgs{
-								ConsoleVerbosity: "0",
-								DirVerbosity:     "5",
-								HeimdallGRpc:     heimdallGrpc,
-							},
-							AccountSlots: 200,
-						},
-						/*&args.BlockProducer{
-							Node: args.Node{
-								ConsoleVerbosity: "0",
-								DirVerbosity:     "5",
-								HeimdallGRpc:     heimdallGrpc,
-							},
-							AccountSlots: 200,
-						},*/
 						&args.NonBlockProducer{
 							NodeArgs: args.NodeArgs{
 								ConsoleVerbosity: "0",
-								DirVerbosity:     "5",
+								DirVerbosity:     "4",
 								HeimdallGRpc:     heimdallGrpc,
 							},
 						},
 					},
 				},
-				{
+				/*{
 					DataDir:            dataDir,
 					Chain:              networkname.DevChainName,
 					Logger:             logger,
@@ -467,8 +451,9 @@ func initDevnet(ctx *cli.Context, logger log.Logger) (devnet.Devnet, error) {
 								DirVerbosity:     "3",
 							},
 						},
-					},
-				}}, nil
+					}
+				},*/
+			}, nil
 		}
 
 	case networkname.DevChainName:

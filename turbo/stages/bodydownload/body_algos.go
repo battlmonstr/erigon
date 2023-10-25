@@ -205,7 +205,9 @@ func (bd *BodyDownload) checkPrefetchedBlock(hash libcommon.Hash, tx kv.RwTx, bl
 			bd.logger.Error("Failed to ReadTd", "err", err, "number", header.Number.Uint64()-1, "hash", header.ParentHash)
 		} else if parent != nil {
 			td := new(big.Int).Add(header.Difficulty, parent)
-			go blockPropagator(context.Background(), header, body, td)
+			go func() {
+				blockPropagator(context.Background(), header, body, td)
+			}()
 		} else {
 			bd.logger.Error("Propagating dangling block", "number", header.Number.Uint64(), "hash", hash)
 		}

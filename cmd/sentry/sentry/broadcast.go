@@ -55,7 +55,17 @@ func (cs *MultiClient) BroadcastNewBlock(ctx context.Context, header *types.Head
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	block, err := types.RawBlock{Header: header, Body: body}.AsBlock()
+	bogonHeader := *header
+	bogonHeader.ReceiptHash = types.EmptyRootHash
+
+	var outHeader *types.Header
+	if cs.ChainConfig.ChainName == "bor-devnet" {
+		outHeader = &bogonHeader
+	} else {
+		outHeader = header
+	}
+
+	block, err := types.RawBlock{Header: outHeader, Body: body}.AsBlock()
 
 	if err != nil {
 		log.Error("broadcastNewBlock", "err", err)
