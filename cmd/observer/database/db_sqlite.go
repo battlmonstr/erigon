@@ -243,14 +243,14 @@ UPDATE nodes SET crawl_retry_time = ? WHERE id IN (123)
 	sqlCountNodes = `
 SELECT COUNT(*) FROM nodes
 WHERE (ping_try < ?)
-    AND ((network_id = ?) OR (network_id IS NULL))
+    AND ((network_id = ?))
     AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
 
 	sqlCountIPs = `
 SELECT COUNT(DISTINCT ip) FROM nodes
 WHERE (ping_try < ?)
-    AND ((network_id = ?) OR (network_id IS NULL))
+    AND ((network_id = ?))
     AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
 
@@ -282,7 +282,7 @@ WHERE (ping_try < ?)
 	sqlEnumerateClientIDs = `
 SELECT client_id FROM nodes
 WHERE (ping_try < ?)
-    AND ((network_id = ?) OR (network_id IS NULL))
+    AND ((network_id = ?))
     AND ((compat_fork == TRUE) OR (compat_fork IS NULL))
 `
 )

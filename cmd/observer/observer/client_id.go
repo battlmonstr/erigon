@@ -6,7 +6,7 @@ func clientNameBlacklist() []string {
 	return []string{
 		// bor/v0.2.14-stable-9edb2836/linux-amd64/go1.17.7
 		// https://polygon.technology
-		"bor",
+		//"bor",
 
 		// Cypher/v1.9.24-unstable-a7d8c0f9/linux-amd64/go1.11
 		// unknown, but it's likely outdated since almost all nodes are running on go 1.11 (2018)
